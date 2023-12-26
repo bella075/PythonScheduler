@@ -1,5 +1,6 @@
 import pandas as pd 
 import yaml
+from pathlib import Path  
 
 # Job shop scheduler 
 class Widget:
@@ -35,7 +36,7 @@ class Widget:
         self.cost_dollars = cost_dollars
         self.treatment_sequence = treatment_sequence
         try:
-            self.treatment_sequence = self.treatment_sequence.split("-")
+            self.treatment_sequence = treatment_sequence.split("-")
             if len(self.treatment_sequence) == 1:
                 self.treatment_sequence = [0]
         except:
@@ -74,8 +75,8 @@ class Widget:
                 ls_proctime_plus_idletime.append(float(p[0]))
             else:
                 print("error!")
-            print("proc and idle tuples", ls_proctime_idletime_tuples)
-            print("list of proc plus idle", ls_proctime_plus_idletime)
+            # print("proc and idle tuples", ls_proctime_idletime_tuples)
+            # print("list of proc plus idle", ls_proctime_plus_idletime)
         return ls_proctime_idletime_tuples, ls_proctime_plus_idletime
     
     def min_num_widget_req_for_full_treatment(self):
@@ -85,10 +86,48 @@ class Widget:
             min_num_widget_req_for_full_treatment = 1
         return min_num_widget_req_for_full_treatment
 
+    @staticmethod
+    def min_to_sec(x):
+        return float(x)*60
+    
     def export_single_widget_schedule_as_csv(self):
-        ls_elapsed_time = []
+        ls_toa, ls_process_time, ls_shift_counter, ls_widget_counter = [], [], [], []
+        ls_day_counter, ls_cost_dollars, ls_treatment_sequence= [], [], []
         elapsed_time = 0
-        pass
+        shift_counter, day_counter, treatment_counter = 1, 1, 0
+        print("treatment_sequence", self.treatment_sequence)
+        for w in range(self.min_num_widget_req_for_full_treatment):
+            for count, tup in enumerate(self.ls_proctime_idletime_tuples):
+                if count == 0:
+                    ls_process_time.append(tup[0])
+                    ls_toa.append(0)
+                else:
+                    ls_process_time.append(tup[0])
+                    ls_toa.append(elapsed_time)
+
+                elapsed_time = elapsed_time + tup[0] + tup[1]
+                ls_shift_counter.append(shift_counter)
+                ls_day_counter.append(day_counter)
+                ls_cost_dollars.append(self.cost_dollars)
+                ls_widget_counter.append(w)
+
+                if self.treatment_sequence == [0]:
+                    ls_treatment_sequence.append(None)
+                elif treatment_counter < len(self.treatment_sequence):
+                    ls_treatment_sequence.append(self.treatment_sequence[treatment_counter])
+                    treatment_counter +=1
+                else:
+                    treatment_counter = 0 #restart counter
+                    ls_treatment_sequence.append(self.treatment_sequence[0])
+
+        columns = ["toa_at_work_station", "process_time_sec", "widget_counter", "shift_counter", "day_counter", "cost_dollars", "treatment_sequence"]
+        data = list(zip(ls_toa, ls_process_time, ls_shift_counter, ls_widget_counter, ls_day_counter, ls_cost_dollars, ls_treatment_sequence ))
+
+        df_export= pd.DataFrame(columns=columns, data=data)
+        path = r"C:\Users\bella\Desktop\export.csv" # %self.name
+        print(path)
+        # print(df_export)
+        df_export.to_csv(path, index=False)
 
     
 def loadYAML(YAML_path):
@@ -104,35 +143,32 @@ def loadYAML(YAML_path):
     df_w["num_shifts"] = data["num_shifts"]
     df_w["published"] = data["published"]
   
-    
     print(df_w)
-    return df_w 
+    return df_w
 
 if __name__ == '__main__':
     # Execute when the module is not initialized from an import statement.
 
-    widget_1 = Widget("Widget1", "J234", "40-20/10-30/20-80-50", 100, None)
-    widget_2 = Widget("Widget2", "J234", "30-40", 100, None)
+    widget_1 = Widget("Widget1", "J234", "40-20/10-30/20-80-50", 100, "100-75-50-25")
+    # widget_2 = Widget("Widget2", "J234", "30-40", 100, None)
 
-    print(widget_1.name, widget_1.id, widget_1.work_sequence)
+    #print(widget_1.name, widget_1.id, widget_1.work_sequence)
    
+    widget_1.export_single_widget_schedule_as_csv()
     # print(issubclass(Widget_with_Treatment, Widget)) 
     # print(isinstance(widget_1, Widget))
 
-    print(widget_1.combine_processing_and_idle_times())
+    # print(widget_1.combine_processing_and_idle_times())
 
     # print(widget_1.__dict__)
     # print(widget.num_unique_widgets)
-    print(Widget.set_workday(27))
-    print(Widget.num_hrs_per_workday)
+    # print(Widget.set_workday(27))
+    # print(Widget.num_hrs_per_workday)
     # print(widget_1.num_hrs_per_workday)
     # print(widget_1.num_hrs_per_shift)
 
-
-
-    YAML_path = r"C:\Users\bella\PythonScheduler\widget_config.yaml"
-
-    df_w = loadYAML(YAML_path)
+    # YAML_path = r"C:\Users\bella\PythonScheduler\widget_config.yaml"
+    # df_w = loadYAML(YAML_path)
 
     
 
