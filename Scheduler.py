@@ -35,12 +35,12 @@ class Job:
         self. work_sequence = work_sequence 
         self.cost_dollars = cost_dollars
         self.treatment_sequence = treatment_sequence
-        try:
-            self.treatment_sequence = treatment_sequence.split("-")
-            if len(self.treatment_sequence) == 1:
-                self.treatment_sequence = [0]
-        except:
-            self.treatment_sequence = [0]
+        # try:
+        #     self.treatment_sequence = treatment_sequence.split("-")
+        #     if len(self.treatment_sequence) == 1:
+        #         self.treatment_sequence = [0]
+        # except:
+        #     self.treatment_sequence = [0]
 
         self.ls_proctime_idletime_tuples = Job.combine_processing_and_idle_times(self)[0]
         self.ls_proctime_plus_idletime = Job.combine_processing_and_idle_times(self)[1]
@@ -81,7 +81,7 @@ class Job:
     
     def min_num_job_req_for_full_treatment(self):
         if (len(self.treatment_sequence) / len(self.ls_proctime_plus_idletime)) > 1:
-            min_num_job_req_for_full_treatment = int((len(self.reatment_sequence) / len(self.ls_proctime_plus_idletime)))
+            min_num_job_req_for_full_treatment = int((len(self.treatment_sequence) / len(self.ls_proctime_plus_idletime)))
         else: 
             min_num_job_req_for_full_treatment = 1
         return min_num_job_req_for_full_treatment
@@ -137,23 +137,49 @@ class Job:
         # print(df_export)
         df_export.to_csv(path, index=False)
         return df_export
+    
+def add_calculated_col_to_yaml_data(df_j):
+    # takes as an argument the dataframe created from user's yaml file and returned from loadYAML()
+    ls_proctime_idletime_tuples, ls_proctime_plus_idletime, ls_total_work_seq_time= [], [], []
+    for idx, row in df_j.iterrows():
+        inst_name = row["name"]
+        inst_name = Job(
+        row["name"],
+        row["id"], 
+        row["work_sequence"],
+        row["cost_dollars"], 
+        row["treatment_sequence"]
+        )
 
+        df_j["treatment_sequence"][idx] = inst_name.treatment_sequence
+
+        print(inst_name.id)
+        ls_total_work_seq_time.append(sum(inst_name.ls_proctime_plus_idletime))
+        ls_proctime_idletime_tuples.append(inst_name.ls_proctime_idletime_tuples)
+        ls_proctime_plus_idletime.append(inst_name.ls_proctime_plus_idletime)
+
+    df_j["proctime_idletime_tuples"] = ls_proctime_idletime_tuples
+    df_j["proctime_plus_idletime"] = ls_proctime_plus_idletime
+    df_j["total_work_seq_time"] = ls_total_work_seq_time # in minutes
+    return df_j
     
 def loadYAML(YAML_path):
-    with open(YAML_path) as stream:
-        data = yaml.safe_load(stream)
-    print(data.keys())
+    try:
+        with open(YAML_path) as stream:
+            data = yaml.safe_load(stream)
+    except:
+        data = yaml.safe_load(YAML_path)
+  
     data["num_hrs_per_workday"]
     print(data["num_shifts"])
     
     print(data["published"])
-    df_w = pd.DataFrame.from_dict(data["job"])
-    df_w["num_hrs_per_workday"] = data["num_hrs_per_workday"]
-    df_w["num_shifts"] = data["num_shifts"]
-    df_w["published"] = data["published"]
-  
-    print(df_w)
-    return df_w
+    df_j = pd.DataFrame.from_dict(data["job"])
+    df_j["num_hrs_per_workday"] = data["num_hrs_per_workday"]
+    df_j["num_shifts"] = data["num_shifts"]
+    df_j["published"] = data["published"]
+    print(df_j)
+    return df_j
 
 if __name__ == '__main__':
     # Execute when the module is not initialized from an import statement.
@@ -177,7 +203,7 @@ if __name__ == '__main__':
     # print(job_1.num_hrs_per_shift)
 
     # YAML_path = r"C:\Users\bella\PythonScheduler\job_config.yaml"
-    # df_w = loadYAML(YAML_path)
+    # df_j = loadYAML(YAML_path)
 
     
 
