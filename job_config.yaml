@@ -2,18 +2,18 @@ Job Scheduler: V1
 num_hrs_per_workday: 21
 num_shifts: 3
 published: 12-26-2023
-widget:
-  - name: widget_1
+job:
+  - name: job_1
     id: W223
     work_sequence: "40-20/10-30/20-80-50"
     cost_dollars: 100
     treatment_sequence: "20-40-50"
-  - name: widget_2
+  - name: job_2
     id: W12
     work_sequence: "30/10"
     cost_dollars: 50
     treatment_sequence: None
-  - name: widget_3
+  - name: job_3
     id: W234
     work_sequence: "80/20-80/20"
     cost_dollars: 300

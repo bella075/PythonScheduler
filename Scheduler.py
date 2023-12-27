@@ -3,27 +3,27 @@ import yaml
 from pathlib import Path  
 
 # Job shop scheduler 
-class Widget:
-    num_unique_widgets = 0
-    num_hrs_per_workday = 21
+class Job:
+    num_unique_jobs = 0
+    num_hrs_per_workday = 12
     num_shifts = 3
     num_hrs_per_shift = num_hrs_per_workday / num_shifts #assume equal shifts
 
     '''
-    Each widget will have, at minimum:
+    Each job will have, at minimum:
     name -> string
     id -> string
-    work_seq_str -> work sequence to manufacture a widget. A string of processing times and downtimes in minutes for a given work sequence.
+    work_seq_str -> work sequence to complete a job. A string of processing times and downtimes in minutes for a given work sequence.
         A work sequence can have one process or many processes. If there is more than one process in the seuqence, then
         processing times will be separated by a "-" delimiter. Processing time includes setup time, but does not include
         downtime. If idle time is required after process, p, then a "/" delimtier will follow the 
-        processing time and the idle time,i, will be given. Idle time may be required if widget needs to cool or set before
+        processing time and the idle time,i, will be given. Idle time may be required if job needs to cool or set before
         commencing the next step inthe work sequence.
             Example: 20-10/3-10/4. The second process takes 10 minutes and 3 minutes of idle time are required.
-        The total time the widget consumes for the workstation will be the processing time + idle time 
-    cost_dollars -> includes labor and material cost for a widget
+        The total time the job consumes for the workstation will be the processing time + idle time 
+    cost_dollars -> includes labor and material cost for a job
 
-    Some widgets may require special treatments. If a series of treatments are required, it is assummed that the
+    Some jobs may require special treatments. If a series of treatments are required, it is assummed that the
     treatments specified will be applied sequentially for all work sequences. 
     The entirety of the treatment must be applied within a pre-defined fixed amount of of time.
     If there are more treatments than processes then, the sequence of processes will repeat until all treatments are applied.
@@ -42,11 +42,11 @@ class Widget:
         except:
             self.treatment_sequence = [0]
 
-        self.ls_proctime_idletime_tuples = Widget.combine_processing_and_idle_times(self)[0]
-        self.ls_proctime_plus_idletime = Widget.combine_processing_and_idle_times(self)[1]
-        self.min_num_widget_req_for_full_treatment = Widget.min_num_widget_req_for_full_treatment(self)
+        self.ls_proctime_idletime_tuples = Job.combine_processing_and_idle_times(self)[0]
+        self.ls_proctime_plus_idletime = Job.combine_processing_and_idle_times(self)[1]
+        self.min_num_job_req_for_full_treatment = Job.min_num_job_req_for_full_treatment(self)
 
-    num_unique_widgets += 1
+    num_unique_jobs += 1
 
     @classmethod
     def set_workday(cls,num_hrs_per_workday):
@@ -79,24 +79,28 @@ class Widget:
             # print("list of proc plus idle", ls_proctime_plus_idletime)
         return ls_proctime_idletime_tuples, ls_proctime_plus_idletime
     
-    def min_num_widget_req_for_full_treatment(self):
+    def min_num_job_req_for_full_treatment(self):
         if (len(self.treatment_sequence) / len(self.ls_proctime_plus_idletime)) > 1:
-            min_num_widget_req_for_full_treatment = int((len(self.reatment_sequence) / len(self.ls_proctime_plus_idletime)))
+            min_num_job_req_for_full_treatment = int((len(self.reatment_sequence) / len(self.ls_proctime_plus_idletime)))
         else: 
-            min_num_widget_req_for_full_treatment = 1
-        return min_num_widget_req_for_full_treatment
+            min_num_job_req_for_full_treatment = 1
+        return min_num_job_req_for_full_treatment
 
     @staticmethod
     def min_to_sec(x):
         return float(x)*60
     
-    def export_single_widget_schedule_as_csv(self):
-        ls_toa, ls_process_time, ls_shift_counter, ls_widget_counter = [], [], [], []
+    @staticmethod
+    def hours_to_min(x):
+        return float(x)*60
+    
+    def make_single_job_schedule(self):
+        ls_toa, ls_process_time, ls_shift_counter, ls_job_counter = [], [], [], []
         ls_day_counter, ls_cost_dollars, ls_treatment_sequence= [], [], []
         elapsed_time = 0
         shift_counter, day_counter, treatment_counter = 1, 1, 0
         print("treatment_sequence", self.treatment_sequence)
-        for w in range(self.min_num_widget_req_for_full_treatment):
+        for w in range(self.min_num_job_req_for_full_treatment):
             for count, tup in enumerate(self.ls_proctime_idletime_tuples):
                 if count == 0:
                     ls_process_time.append(tup[0])
@@ -109,7 +113,7 @@ class Widget:
                 ls_shift_counter.append(shift_counter)
                 ls_day_counter.append(day_counter)
                 ls_cost_dollars.append(self.cost_dollars)
-                ls_widget_counter.append(w)
+                ls_job_counter.append(w)
 
                 if self.treatment_sequence == [0]:
                     ls_treatment_sequence.append(None)
@@ -120,14 +124,19 @@ class Widget:
                     treatment_counter = 0 #restart counter
                     ls_treatment_sequence.append(self.treatment_sequence[0])
 
-        columns = ["toa_at_work_station", "process_time_sec", "widget_counter", "shift_counter", "day_counter", "cost_dollars", "treatment_sequence"]
-        data = list(zip(ls_toa, ls_process_time, ls_shift_counter, ls_widget_counter, ls_day_counter, ls_cost_dollars, ls_treatment_sequence ))
+        columns = ["toa_at_work_station", "process_time_sec", "job_counter", "shift_counter", "day_counter", "cost_dollars", "treatment_sequence"]
+        data = list(zip(ls_toa, ls_process_time, ls_shift_counter, ls_job_counter, ls_day_counter, ls_cost_dollars, ls_treatment_sequence ))
 
         df_export= pd.DataFrame(columns=columns, data=data)
-        path = r"C:\Users\bella\Desktop\export.csv" # %self.name
+        return df_export
+    
+    def export_single_job_schedule_as_csv(self):
+        df_export = Job.make_single_job_schedule(self)
+        path = r"C:\Users\bella\Desktop\export_%s.csv"  %self.name
         print(path)
         # print(df_export)
         df_export.to_csv(path, index=False)
+        return df_export
 
     
 def loadYAML(YAML_path):
@@ -138,7 +147,7 @@ def loadYAML(YAML_path):
     print(data["num_shifts"])
     
     print(data["published"])
-    df_w = pd.DataFrame.from_dict(data["widget"])
+    df_w = pd.DataFrame.from_dict(data["job"])
     df_w["num_hrs_per_workday"] = data["num_hrs_per_workday"]
     df_w["num_shifts"] = data["num_shifts"]
     df_w["published"] = data["published"]
@@ -149,25 +158,25 @@ def loadYAML(YAML_path):
 if __name__ == '__main__':
     # Execute when the module is not initialized from an import statement.
 
-    widget_1 = Widget("Widget1", "J234", "40-20/10-30/20-80-50", 100, "100-75-50-25")
-    # widget_2 = Widget("Widget2", "J234", "30-40", 100, None)
+    job_1 = Job("Job1", "J234", "40-20/10-30/20-80-50", 100, "100-75-50-25")
+    # job_2 = Job("Job2", "J234", "30-40", 100, None)
 
-    #print(widget_1.name, widget_1.id, widget_1.work_sequence)
+    #print(job_1.name, job_1.id, job_1.work_sequence)
    
-    widget_1.export_single_widget_schedule_as_csv()
-    # print(issubclass(Widget_with_Treatment, Widget)) 
-    # print(isinstance(widget_1, Widget))
+    job_1.export_single_job_schedule_as_csv()
+    # print(issubclass(Job_with_Treatment, Job)) 
+    # print(isinstance(job_1, Job))
 
-    # print(widget_1.combine_processing_and_idle_times())
+    # print(job_1.combine_processing_and_idle_times())
 
-    # print(widget_1.__dict__)
-    # print(widget.num_unique_widgets)
-    # print(Widget.set_workday(27))
-    # print(Widget.num_hrs_per_workday)
-    # print(widget_1.num_hrs_per_workday)
-    # print(widget_1.num_hrs_per_shift)
+    # print(job_1.__dict__)
+    # print(job.num_unique_jobs)
+    # print(Job.set_workday(27))
+    # print(Job.num_hrs_per_workday)
+    # print(job_1.num_hrs_per_workday)
+    # print(job_1.num_hrs_per_shift)
 
-    # YAML_path = r"C:\Users\bella\PythonScheduler\widget_config.yaml"
+    # YAML_path = r"C:\Users\bella\PythonScheduler\job_config.yaml"
     # df_w = loadYAML(YAML_path)
 
     
