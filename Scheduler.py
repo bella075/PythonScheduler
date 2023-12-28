@@ -5,7 +5,7 @@ from pathlib import Path
 # Job shop scheduler 
 class Job:
     num_unique_jobs = 0
-    num_hrs_per_workday = 12
+    num_hrs_per_workday = 21
     num_shifts = 3
     num_hrs_per_shift = num_hrs_per_workday / num_shifts #assume equal shifts
 
@@ -35,13 +35,7 @@ class Job:
         self. work_sequence = work_sequence 
         self.cost_dollars = cost_dollars
         self.treatment_sequence = treatment_sequence
-        # try:
-        #     self.treatment_sequence = treatment_sequence.split("-")
-        #     if len(self.treatment_sequence) == 1:
-        #         self.treatment_sequence = [0]
-        # except:
-        #     self.treatment_sequence = [0]
-
+        self.treatment_sequence = Job.convert_treatment_seq_string_to_list(self)
         self.ls_proctime_idletime_tuples = Job.combine_processing_and_idle_times(self)[0]
         self.ls_proctime_plus_idletime = Job.combine_processing_and_idle_times(self)[1]
         self.min_num_job_req_for_full_treatment = Job.min_num_job_req_for_full_treatment(self)
@@ -94,12 +88,23 @@ class Job:
     def hours_to_min(x):
         return float(x)*60
     
+    # convert treatement sequence from string to list
+    def convert_treatment_seq_string_to_list(self):
+        if self.treatment_sequence == "0":
+            self.treatment_sequence = [0]
+        else:
+            self.treatment_sequence = self.treatment_sequence.split("-")
+        return self.treatment_sequence
+    
     def make_single_job_schedule(self):
         ls_toa, ls_process_time, ls_shift_counter, ls_job_counter = [], [], [], []
         ls_day_counter, ls_cost_dollars, ls_treatment_sequence= [], [], []
         elapsed_time = 0
         shift_counter, day_counter, treatment_counter = 1, 1, 0
+
+        #update treatment_sequence
         print("treatment_sequence", self.treatment_sequence)
+
         for w in range(self.min_num_job_req_for_full_treatment):
             for count, tup in enumerate(self.ls_proctime_idletime_tuples):
                 if count == 0:
@@ -115,8 +120,8 @@ class Job:
                 ls_cost_dollars.append(self.cost_dollars)
                 ls_job_counter.append(w)
 
-                if self.treatment_sequence == [0]:
-                    ls_treatment_sequence.append(None)
+                if self.treatment_sequence == "0":
+                    ls_treatment_sequence.append(0)
                 elif treatment_counter < len(self.treatment_sequence):
                     ls_treatment_sequence.append(self.treatment_sequence[treatment_counter])
                     treatment_counter +=1
@@ -150,8 +155,6 @@ def add_calculated_col_to_yaml_data(df_j):
         row["cost_dollars"], 
         row["treatment_sequence"]
         )
-
-        df_j["treatment_sequence"][idx] = inst_name.treatment_sequence
 
         print(inst_name.id)
         ls_total_work_seq_time.append(sum(inst_name.ls_proctime_plus_idletime))
@@ -187,9 +190,9 @@ if __name__ == '__main__':
     job_1 = Job("Job1", "J234", "40-20/10-30/20-80-50", 100, "100-75-50-25")
     # job_2 = Job("Job2", "J234", "30-40", 100, None)
 
-    #print(job_1.name, job_1.id, job_1.work_sequence)
+    print(job_1.name, job_1.id, job_1.work_sequence, job_1.treatment_sequence)
    
-    job_1.export_single_job_schedule_as_csv()
+    # job_1.export_single_job_schedule_as_csv()
     # print(issubclass(Job_with_Treatment, Job)) 
     # print(isinstance(job_1, Job))
 

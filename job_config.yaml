@@ -12,9 +12,9 @@ job:
     id: W12
     work_sequence: "30/10"
     cost_dollars: 50
-    treatment_sequence: None
+    treatment_sequence: "0"
   - name: job_3
     id: W234
     work_sequence: "80/20-80/20"
     cost_dollars: 300
-    treatment_sequence: None
+    treatment_sequence: "0"

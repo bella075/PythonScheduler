@@ -12,13 +12,14 @@ from bokeh.plotting import figure, show
 #FUNCTIONS
 # set class variables for number of shifts and number of hours per workday
 def set_class_variables():
-    Job.set_num_shifts(df_j["num_shifts"][0])
-    Job.set_workday(df_j["num_hrs_per_workday"][0])
+    Job.set_num_shifts(df_j_full["num_shifts"][0])
+    Job.set_workday(df_j_full["num_hrs_per_workday"][0])
 
 # drop rows from dataframe
 def drop_rows(idx):
     # argument is index of the row to drop. Drops row inplace 
     st.session_state.user_sel_jobs.drop(idx, inplace=True)
+    st.session_state.user_sel_jobs.reset_index(inplace=True, drop=True)
 
 # add rows to dataframe
 def add_rows(colname, colval):
@@ -28,7 +29,6 @@ def add_rows(colname, colval):
     st.session_state.user_sel_jobs = pd.concat([st.session_state.user_sel_jobs, df_to_add])
     st.session_state.user_sel_jobs.reset_index(inplace=True, drop=True)
     
-    
 # reindex rows in dataframe
 def reindex_df(ls_new_order):
     #argument is list of new order of rows by index
@@ -36,9 +36,9 @@ def reindex_df(ls_new_order):
     return df_j_edit
 
 # export as csv
-def export_df_as_csv():
+def export_df_as_csv(df, path):
     df_export = pd.DataFrame()
-    for idx, row in df_export.iterrows():
+    for idx, row in df.iterrows():
         inst_name = row["name"]
         inst_name = Job(
         row["name"],
@@ -47,15 +47,16 @@ def export_df_as_csv():
         row["cost_dollars"], 
         row["treatment_sequence"]
         )
-
         df_export_single = inst_name.make_single_job_schedule()
         df_export = pd.concat([df_export, df_export_single])
-        # path = r"C:\Users\bella\Desktop\export_%s.csv"  %self.name
-        # df_export.to_csv(path, index=False)
+        #path = r"C:\Users\bella\Desktop\export_%s.csv" 
+        path = path
+        df_export.to_csv(path, index=False)
 
     return df_export
 
-#layout page
+# layout page
+# st.set_page_config(layout="wide")
 tab0, tab1, tab2 = st.tabs(["Read Me", "Job Menu", "Job Scheduler"])
 
 #session state variables
@@ -69,7 +70,12 @@ if 'job_to_add' not in st.session_state:
     st.session_state['job_to_add'] = None
 if 'job_to_drop' not in st.session_state:
     st.session_state['job_to_drop'] = None
-
+if 'submit' not in st.session_state:
+    st.session_state['submit'] = None
+if 'reset' not in st.session_state:
+    st.session_state['reset'] = None
+if 'shift_current_delta' not in st.session_state:
+    st.session_state['shift_current_delta'] = 0
 with tab0:
     st.header("Read Me")
     st.write(
@@ -111,9 +117,9 @@ with tab1:
         st.session_state.job_menu = df_j_init
         with st.expander("View uploaded jobs"):
             st.dataframe(st.session_state.job_menu)
-        st.subheader("Job Menu")
+        st.subheader("Jobs on the Menu")
         df_j_full = add_calculated_col_to_yaml_data(df_j_init)
-        df_j = df_j_full[["name", "id", "cost_dollars", 
+        df_j = df_j_full[["name", "id", "cost_dollars", "work_sequence",
             "treatment_sequence", "proctime_idletime_tuples",
             "proctime_plus_idletime", "total_work_seq_time", "num_shifts"]]
         st.dataframe(df_j)
@@ -124,16 +130,13 @@ with tab1:
         col0, col1, col2 = st.columns(3)
         with col0:
             st.write("Workday Metrics  :sunglasses:")
-            st.button("Set class variables", on_click=set_class_variables)
+            st.button("Set class variables", on_click=set_class_variables, type="primary")
         col1.metric("Work Shifts / Day", df_j_full["num_shifts"][0], delta=None)
         col2.metric("Work Hours / Day", df_j_full["num_hrs_per_workday"][0], delta=None)
 
         #plot stacked column
         fig_cost = px.bar(df_j, x='name', y='cost_dollars')
         st.plotly_chart(fig_cost, use_container_width=True)
-
-        fig = px.bar(df_j, x='name', y='cost_dollars')
-        st.plotly_chart(fig, use_container_width=True)
        
        #bokeh plot
         # source = ColumnDataSource(df_j)
@@ -146,7 +149,7 @@ with tab1:
 with tab2:
     st.header("Job Scheduler")
     if YAML_path:
-
+        st.subheader("Job Menu")
         st.dataframe(df_j)
 
         # # find max number of jobs per shift
@@ -154,7 +157,7 @@ with tab2:
             Job.num_hrs_per_workday/Job.num_shifts)*60) / df_j["total_work_seq_time"]
         print(df_j)
 
-        st.subheader("Drop/Add Jobs to Your Schedule")
+        st.subheader("Make Schedule")
         col0, col1 = st.columns(2)
 
         #line below will reset user_sel_jobs each time submit button clicked!
@@ -168,41 +171,90 @@ with tab2:
             if st.session_state.drop_or_add:
                 # provide list of indices for user to select which to drop
                 if st.session_state.drop_or_add == ":red[DROP]":
+                    if len(list(st.session_state.user_sel_jobs.index)) == 0:
+                        st.write("There are currently no jobs scheduled.")
                     st.session_state.job_to_drop = st.selectbox(
                         "select the index for the row you wish to %s" %st.session_state.drop_or_add,
                         tuple(list(st.session_state.user_sel_jobs.index))
                         )
+                    st.write("You selected to ", st.session_state.drop_or_add,
+                              "the job with index", st.session_state.job_to_drop)
+                    st.write("Click the Submit button to drop the job from your schedule.")
+                    
+                # select which job from the menu to add 
                 elif st.session_state.drop_or_add == ":green[ADD]":
                     st.session_state.job_to_add = st.selectbox(
-                        "Select a job(s) to %s" %st.session_state.drop_or_add, 
+                        "Select a job to %s " %st.session_state.drop_or_add, 
                         tuple(df_j["name"].values)
                         )
                     st.write("You selected to ", st.session_state.drop_or_add, st.session_state.job_to_add)
-
-        submit = st.button("Submit Selection", type="primary")
-        reset = st.button("Clear Schedule")
-        if submit:
+                    st.write("Click the Submit to add the job to your schedule.")
+                    
+                st.session_state.submit = st.button("Submit", type="primary")
+        
+        # if submit button is clicked, update df
+        if st.session_state.submit:
+            # update shift and total work seq time delta
+            st.session_state.shift_current_delta = (Job.num_hrs_per_workday*60/ Job.num_shifts) - st.session_state.user_sel_jobs["total_work_seq_time"].sum()
+           
             if (st.session_state.drop_or_add is not None) and (st.session_state.job_to_add is not None):
                 # add selected rows
                 if st.session_state.drop_or_add == ":green[ADD]":
                     add_rows("name", st.session_state.job_to_add)
                 # drop selected rows
                 elif st.session_state.drop_or_add == ":red[DROP]":
-                    st.write("heyyyy")
+                    st.write(st.session_state.job_to_drop)
+                    drop_rows(st.session_state.job_to_drop)
+                    #st.session_state.user_sel_jobs(st.session_state.job_to_drop)
+
+        st.subheader("Current Schedule")
         st.write(st.session_state.user_sel_jobs)
-         
-        if reset:
+        col_barplot1, col_barplot2 = st.columns(2)
+        with col_barplot1:
+            st.subheader("Time Consumption")
+            if len(list(st.session_state.user_sel_jobs.index)) > 0:
+                # plot stacked column of current schedule and bar chart to viz shift time and workday time
+                fig_bar = px.bar(st.session_state.user_sel_jobs, x="num_shifts", y="total_work_seq_time", color="total_work_seq_time", text = "name", title=" Total Time (minutes) in Current Schedule ")
+                st.plotly_chart(fig_bar, use_container_width=True)
+        with col_barplot2:
+            st.subheader("Schedule Metrics")
+            st.write(st.session_state.user_sel_jobs["total_work_seq_time"].sum(), "total minutes consumed by jobs selected")
+            st.write(Job.num_hrs_per_workday * 60, "total minutes in a workday")
+            st.write((Job.num_hrs_per_workday * 60 / Job.num_shifts) , "total minutes in a shift")
+        
+        st.subheader("Export Schedule")
+        # display only if jobs are scheduled
+        if (len(list(st.session_state.user_sel_jobs.index)) == 0):
+            st.write("No jobs scheduled.")
+        else:
+            st.write('''
+                    The exported schedule will include the time of arrival (TOA) of each
+                    job at each workstation specifiec in the job's work sequence.
+                    ''')
+            # if export, iterate over df to apply method "make single job schedule" from Job class
+            export_path = st.text_input("Provide the directory path for your export. An example is shown below. If the csv file does not already exist, create a blank csv file at the location first.")
+            st.write(r"C:\Users\bella\Desktop\my_schedule.csv")
+            st.write("File path for exported schedule:", export_path)
+            #export and reset buttons
+            col2, col3 = st.columns(2)
+            with col2:
+                export_as_csv = st.button("Export schedule as csv")
+            with col3:
+                st.session_state.reset = st.button("Clear ALL jobs from schedule")
+                st.write("Double click to clear table displayed above.")
+            if export_path:
+                df_export = export_df_as_csv(st.session_state.user_sel_jobs, export_path)
+                #st.write("Preview of exported schedule")
+                #st.write(df_export.head())
+                
+        # if reset, clear df
+        if st.session_state.reset:
             st.session_state.user_sel_jobs = pd.DataFrame(columns = df_j.columns)
-            st.write(st.session_state.user_sel_jobs)
+            #st.write(st.session_state.user_sel_jobs)
 
-        #plot stacked column
-        fig_bar = px.bar(df_j, x="num_shifts", y="total_work_seq_time", color="total_work_seq_time", title="Sum of Time in Minutes Consumed by Selected Jobs ")
-        st.plotly_chart(fig_bar, use_container_width=True)
 
-# shift_len_minus_total_work_seq_time_in_min = (Job.num_hrs_per_workday*60/ Job.num_shifts) - df_j["total_work_seq_time"].sum()
+# shift_current_delta = (Job.num_hrs_per_workday*60/ Job.num_shifts) - df_j["total_work_seq_time"].sum()
 
-# if (shift_len_minus_total_work_seq_time_in_min) <0:
-#     print("shift boundary exceeded by %s minutes. " % shift_len_minus_total_work_seq_time_in_min)
 
 # print(df_j["total_work_seq_time"].sum())
 
