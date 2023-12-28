@@ -6,7 +6,8 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 import yaml
-from streamlit_option_menu import option_menu
+from bokeh.models import ColumnDataSource
+from bokeh.plotting import figure, show
 
 #FUNCTIONS
 # set class variables for number of shifts and number of hours per workday
@@ -17,15 +18,16 @@ def set_class_variables():
 # drop rows from dataframe
 def drop_rows(idx):
     # argument is index of the row to drop. Drops row inplace 
-    df_j_edit.drop(idx, inplace=True)
+    st.session_state.user_sel_jobs.drop(idx, inplace=True)
 
 # add rows to dataframe
 def add_rows(colname, colval):
     # arguments are col name and col value of df_j row to add
     # reset index after adding column
     df_to_add = df_j[df_j[colname]== colval]
-    df_j_edit = pd.concat([df_j_edit, df_to_add])
-    df_j_edit.reset_index(inplace=True, drop=True)
+    st.session_state.user_sel_jobs = pd.concat([st.session_state.user_sel_jobs, df_to_add])
+    st.session_state.user_sel_jobs.reset_index(inplace=True, drop=True)
+    
     
 # reindex rows in dataframe
 def reindex_df(ls_new_order):
@@ -36,7 +38,7 @@ def reindex_df(ls_new_order):
 # export as csv
 def export_df_as_csv():
     df_export = pd.DataFrame()
-    for idx, row in df_j_edit.iterrows():
+    for idx, row in df_export.iterrows():
         inst_name = row["name"]
         inst_name = Job(
         row["name"],
@@ -59,7 +61,17 @@ tab0, tab1, tab2 = st.tabs(["Read Me", "Job Menu", "Job Scheduler"])
 #session state variables
 if 'job_menu' not in st.session_state:
     st.session_state['job_menu'] = pd.DataFrame()
+if 'user_sel_jobs' not in st.session_state:
+    st.session_state['user_sel_jobs'] = pd.DataFrame()
+if 'drop_or_add' not in st.session_state:
+    st.session_state['drop_or_add'] = None
+if 'job_to_add' not in st.session_state:
+    st.session_state['job_to_add'] = None
+if 'job_to_drop' not in st.session_state:
+    st.session_state['job_to_drop'] = None
+
 with tab0:
+    st.header("Read Me")
     st.write(
     '''
     Job Class Description:
@@ -123,18 +135,68 @@ with tab1:
         fig = px.bar(df_j, x='name', y='cost_dollars')
         st.plotly_chart(fig, use_container_width=True)
        
+       #bokeh plot
+        # source = ColumnDataSource(df_j)
+        # p = figure( title='simple line example',
+        #     x_axis_label='Name',
+        #     y_axis_label='Cost in Dollars')
+        # p.vbar(x='name', top='cost_dollars', width=0.9, legend_field="name", source=source)
+        # st.bokeh_chart(p, use_container_width=True)
         
 with tab2:
     st.header("Job Scheduler")
     if YAML_path:
+
         st.dataframe(df_j)
 
         # # find max number of jobs per shift
-        df_j["max_num_jobs_per_shift"] = ((Job.num_hrs_per_workday/Job.num_shifts)*60) / df_j["total_work_seq_time"]
+        df_j["max_num_jobs_per_shift"] = ((
+            Job.num_hrs_per_workday/Job.num_shifts)*60) / df_j["total_work_seq_time"]
         print(df_j)
 
+        st.subheader("Drop/Add Jobs to Your Schedule")
+        col0, col1 = st.columns(2)
+
+        #line below will reset user_sel_jobs each time submit button clicked!
+        #st.session_state.user_sel_jobs = pd.DataFrame(columns = df_j.columns)
+        with col0:
+            #select to perform a drop or add action
+            st.session_state.drop_or_add = st.radio(
+            "Do you wish to drop or add a job? ",
+            [":red[DROP]", ":green[ADD]"], index=None,)  
+        with col1:
+            if st.session_state.drop_or_add:
+                # provide list of indices for user to select which to drop
+                if st.session_state.drop_or_add == ":red[DROP]":
+                    st.session_state.job_to_drop = st.selectbox(
+                        "select the index for the row you wish to %s" %st.session_state.drop_or_add,
+                        tuple(list(st.session_state.user_sel_jobs.index))
+                        )
+                elif st.session_state.drop_or_add == ":green[ADD]":
+                    st.session_state.job_to_add = st.selectbox(
+                        "Select a job(s) to %s" %st.session_state.drop_or_add, 
+                        tuple(df_j["name"].values)
+                        )
+                    st.write("You selected to ", st.session_state.drop_or_add, st.session_state.job_to_add)
+
+        submit = st.button("Submit Selection", type="primary")
+        reset = st.button("Clear Schedule")
+        if submit:
+            if (st.session_state.drop_or_add is not None) and (st.session_state.job_to_add is not None):
+                # add selected rows
+                if st.session_state.drop_or_add == ":green[ADD]":
+                    add_rows("name", st.session_state.job_to_add)
+                # drop selected rows
+                elif st.session_state.drop_or_add == ":red[DROP]":
+                    st.write("heyyyy")
+        st.write(st.session_state.user_sel_jobs)
+         
+        if reset:
+            st.session_state.user_sel_jobs = pd.DataFrame(columns = df_j.columns)
+            st.write(st.session_state.user_sel_jobs)
+
         #plot stacked column
-        fig_bar = px.bar(df_j, x="num_shifts", y="total_work_seq_time", color="total_work_seq_time", title="Long-Form Input")
+        fig_bar = px.bar(df_j, x="num_shifts", y="total_work_seq_time", color="total_work_seq_time", title="Sum of Time in Minutes Consumed by Selected Jobs ")
         st.plotly_chart(fig_bar, use_container_width=True)
 
 # shift_len_minus_total_work_seq_time_in_min = (Job.num_hrs_per_workday*60/ Job.num_shifts) - df_j["total_work_seq_time"].sum()
