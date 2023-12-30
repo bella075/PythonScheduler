@@ -58,7 +58,7 @@ def export_df_as_csv(df, path):
 
 # layout page
 # st.set_page_config(layout="wide")
-tab0, tab1, tab2 = st.tabs(["Read Me", "Job Menu", "Job Scheduler"])
+tab1, tab2 = st.tabs(["Job Menu", "Schedule Jobs"])
 
 #session state variables
 if 'job_menu' not in st.session_state:
@@ -77,49 +77,9 @@ if 'reset' not in st.session_state:
     st.session_state['reset'] = None
 if 'shift_current_delta' not in st.session_state:
     st.session_state['shift_current_delta'] = 0
-with tab0:
-    st.header("Read Me")
-    st.write(
-    '''
-    Job Class Description:
-
-    Each instance of a job will have, at minimum:
-
-    **:red[name]** -> type: string
-
-    **:red[id]** -> type: string
-
-    **:red[work_seq_str]** -> type: string. A string of processing times and idle times in minutes for a given work sequence.
-   
-    A work sequence can have one or more operations. If there is more than one process in the seqence, 
-    then processing times will be separated by a "-" delimiter. Processing time includes setup time, 
-    but does not include idle time. If idle time is required after an operation, then a "/" delimiter will follow the 
-    processing time, p, and the idle time,i, will be given. Idle time may be required if job needs to cool or set before
-    commencing the next step inthe work sequence.
-    
-    work sequence example: 20-10/3-10/4. 
-
-    The second process takes 10 minutes and 3 minutes of idle time are required.
-    The total time the job consumes for the workstation will be the processing time + idle time 
-
-    **:red[cost_dollars]** -> type: float. includes labor and material cost for a job
-
-    **:red[treatment_sequence]** -> type: float. If a job requires a series of treatments, it is assummed that the
-    treatments specified will be applied sequentially for all work sequences. 
-
-    If there are more treatments than processes, then once the treatment is applied to the last operation in a 
-    work sequence, it will move on the the first operation and traverse the work sequence as many times as needed to complete
-    the full sequence. Use the "-" delimiter to delineate treatments
-
-    If no treatment is required, enter: "0" in the YAML file. 
-
-    Treatment sequence example: "20-40-50"
-
-    '''
-    )
 
 with tab1:
-    st.header("Job Menu")
+    st.header("Upload & Visualize Job Menu")
 
     st.subheader("Upload Jobs")
     st.write("Upload a YAML file that defines the jobs your job shop can manufacture.")
@@ -182,7 +142,6 @@ with tab1:
         fig_pi_time.update_layout(title="Work Sequence Time (minutes)")
         st.plotly_chart(fig_pi_time, use_container_width=True)
 
-
        #bokeh plot
         # source = ColumnDataSource(df_j)
         # p = figure( title='simple line example',
@@ -192,7 +151,9 @@ with tab1:
         # st.bokeh_chart(p, use_container_width=True)
         
 with tab2:
-    st.header("Job Scheduler")
+    st.header("Schedule Jobs")
+    if not YAML_path:
+        st.write("Upload a job menu to schedule jobs.")
     if YAML_path:
         st.subheader("Job Menu")
         st.dataframe(df_j)
