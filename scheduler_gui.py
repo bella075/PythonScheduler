@@ -6,8 +6,9 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 import yaml
-from bokeh.models import ColumnDataSource
-from bokeh.plotting import figure, show
+import plotly.graph_objects as go
+# from bokeh.models import ColumnDataSource
+# from bokeh.plotting import figure, show
 
 #FUNCTIONS
 # set class variables for number of shifts and number of hours per workday
@@ -129,15 +130,44 @@ with tab1:
         
         col0, col1, col2 = st.columns(3)
         with col0:
-            st.write("Workday Metrics  :sunglasses:")
+            st.write("Parameters from YAML config are shown on the right. Click to set as class variables that apply to all job instances. :sunglasses:")
             st.button("Set class variables", on_click=set_class_variables, type="primary")
         col1.metric("Work Shifts / Day", df_j_full["num_shifts"][0], delta=None)
         col2.metric("Work Hours / Day", df_j_full["num_hrs_per_workday"][0], delta=None)
 
         #plot stacked column
-        fig_cost = px.bar(df_j, x='name', y='cost_dollars')
+        fig_cost = px.bar(df_j, x='name', y='cost_dollars', title= "Job Cost ($) ").update_layout(
+            xaxis_title="Job Name", yaxis_title="Unit Cost ($)")
         st.plotly_chart(fig_cost, use_container_width=True)
-       
+
+        sel_job_to_graph = st.selectbox("Select a job to graph", list(df_j_full["name"].values))
+        if sel_job_to_graph:
+            tups = df_j_full[df_j_full["name"]== sel_job_to_graph]["proctime_idletime_tuples"].values[0]
+            ptimes, idletimes, opnum = [], [], []
+            st.write(tups)
+            st.write("total work sequence time for",
+                sel_job_to_graph," is ",
+                df_j_full[df_j_full["name"]== sel_job_to_graph]["total_work_seq_time"].values[0], " minutes")
+            for count, t in enumerate(tups):
+                ptimes.append(float(t[0]))
+                idletimes.append(float(t[1]))
+                opnum.append("operation_%s" %count)
+
+        # processing and idle time graph
+        fig_pi_time = go.Figure()
+        fig_pi_time.add_trace(go.Bar(x=opnum, y=ptimes,
+                        base=0,
+                        marker_color='crimson',
+                        name='processing time'
+                        ))
+        fig_pi_time.add_trace(go.Bar(x=opnum, y=idletimes,
+                        base=[-1*x for x in idletimes],
+                        marker_color='lightslategrey',
+                        name='idle time'))
+        fig_pi_time.update_layout(title="Work Sequence Time (minutes)")
+        st.plotly_chart(fig_pi_time, use_container_width=True)
+
+
        #bokeh plot
         # source = ColumnDataSource(df_j)
         # p = figure( title='simple line example',
@@ -218,9 +248,10 @@ with tab2:
                 st.plotly_chart(fig_bar, use_container_width=True)
         with col_barplot2:
             st.subheader("Schedule Metrics")
-            st.write(st.session_state.user_sel_jobs["total_work_seq_time"].sum(), "total minutes consumed by jobs selected")
-            st.write(Job.num_hrs_per_workday * 60, "total minutes in a workday")
-            st.write((Job.num_hrs_per_workday * 60 / Job.num_shifts) , "total minutes in a shift")
+            if len(list(st.session_state.user_sel_jobs.index)) > 0:
+                st.write(st.session_state.user_sel_jobs["total_work_seq_time"].sum(), "total minutes consumed by jobs selected")
+                st.write(Job.num_hrs_per_workday * 60, "total minutes in a workday")
+                st.write((Job.num_hrs_per_workday * 60 / Job.num_shifts) , "total minutes in a shift")
         
         st.subheader("Export Schedule")
         # display only if jobs are scheduled
