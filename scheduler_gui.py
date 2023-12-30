@@ -84,22 +84,37 @@ with tab0:
     Job Class Description:
 
     Each instance of a job will have, at minimum:
-    name -> string
-    id -> string
-    work_seq_str -> work sequence to complete a job. A string of processing times and downtimes in minutes for a given work sequence.
-        A work sequence can have one process or many processes. If there is more than one process in the seuqence, then
-        processing times will be separated by a "-" delimiter. Processing time includes setup time, but does not include
-        downtime. If idle time is required after process, p, then a "/" delimtier will follow the 
-        processing time and the idle time,i, will be given. Idle time may be required if job needs to cool or set before
-        commencing the next step inthe work sequence.
-            Example: 20-10/3-10/4. The second process takes 10 minutes and 3 minutes of idle time are required.
-        The total time the job consumes for the workstation will be the processing time + idle time 
-    cost_dollars -> includes labor and material cost for a job
 
-    Some jobs may require special treatments. If a series of treatments are required, it is assummed that the
+    **:red[name]** -> type: string
+
+    **:red[id]** -> type: string
+
+    **:red[work_seq_str]** -> type: string. A string of processing times and idle times in minutes for a given work sequence.
+   
+    A work sequence can have one or more operations. If there is more than one process in the seqence, 
+    then processing times will be separated by a "-" delimiter. Processing time includes setup time, 
+    but does not include idle time. If idle time is required after an operation, then a "/" delimiter will follow the 
+    processing time, p, and the idle time,i, will be given. Idle time may be required if job needs to cool or set before
+    commencing the next step inthe work sequence.
+    
+    work sequence example: 20-10/3-10/4. 
+
+    The second process takes 10 minutes and 3 minutes of idle time are required.
+    The total time the job consumes for the workstation will be the processing time + idle time 
+
+    **:red[cost_dollars]** -> type: float. includes labor and material cost for a job
+
+    **:red[treatment_sequence]** -> type: float. If a job requires a series of treatments, it is assummed that the
     treatments specified will be applied sequentially for all work sequences. 
-    The entirety of the treatment must be applied within a pre-defined fixed amount of of time.
-    If there are more treatments than processes then, the sequence of processes will repeat until all treatments are applied.
+
+    If there are more treatments than processes, then once the treatment is applied to the last operation in a 
+    work sequence, it will move on the the first operation and traverse the work sequence as many times as needed to complete
+    the full sequence. Use the "-" delimiter to delineate treatments
+
+    If no treatment is required, enter: "0" in the YAML file. 
+
+    Treatment sequence example: "20-40-50"
+
     '''
     )
 
@@ -225,7 +240,7 @@ with tab2:
         # if submit button is clicked, update df
         if st.session_state.submit:
             # update shift and total work seq time delta
-            st.session_state.shift_current_delta = (Job.num_hrs_per_workday*60/ Job.num_shifts) - st.session_state.user_sel_jobs["total_work_seq_time"].sum()
+            #st.session_state.shift_current_delta = (Job.num_hrs_per_workday*60/ Job.num_shifts) - st.session_state.user_sel_jobs["total_work_seq_time"].sum()
            
             if (st.session_state.drop_or_add is not None) and (st.session_state.job_to_add is not None):
                 # add selected rows
