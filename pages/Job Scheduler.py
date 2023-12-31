@@ -248,11 +248,11 @@ with tab2:
                 fig_bar = px.bar(st.session_state.user_sel_jobs, x="num_shifts", y="total_work_seq_time", color="total_work_seq_time", text = "name", title=" Total Time (minutes) in Current Schedule ")
                 st.plotly_chart(fig_bar, use_container_width=True)
         with col_barplot2:
-            st.subheader("Schedule Metrics")
+            st.subheader("Metrics (in Minutes)")
             if len(list(st.session_state.user_sel_jobs.index)) > 0:
-                st.write(st.session_state.user_sel_jobs["total_work_seq_time"].sum(), "total minutes consumed by jobs selected")
-                st.write(Job.num_hrs_per_workday * 60, "total minutes in a workday")
-                st.write((Job.num_hrs_per_workday * 60 / Job.num_shifts) , "total minutes in a shift")
+                st.write("Total time consumed by jobs selected:", st.session_state.user_sel_jobs["total_work_seq_time"].sum())
+                st.write("Workday duration:", Job.num_hrs_per_workday * 60)
+                st.write("Single shift duration:", (Job.num_hrs_per_workday * 60 / Job.num_shifts) )
         
         st.subheader("Export Schedule")
         # display only if jobs are scheduled
