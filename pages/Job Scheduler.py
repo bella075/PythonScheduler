@@ -36,26 +36,30 @@ def reindex_df(ls_new_order):
     df_j_edit = df_j_edit.reindex(ls_new_order)
     return df_j_edit
 
-# export as csv
-def export_df_as_csv(df, path):
+# preview export as csv
+def preview_export_df_as_csv(df_input):
     df_export = pd.DataFrame()
-    for idx, row in df.iterrows():
-        inst_name = row["name"]
-        inst_name = Job(
-        row["name"],
+    print(df_input.shape)
+    time_now = 0
+    for idx, row in df_input.iterrows():
+        # inst_name = row["name"]
+        inst_name = Job( row["name"],
         row["id"], 
         row["work_sequence"],
         row["cost_dollars"], 
-        row["treatment_sequence"]
-        )
-        df_export_single = inst_name.make_single_job_schedule()
+        row["treatment_sequence"])
+        df_export_single = inst_name.make_single_job_schedule(start_time=time_now)
+        time_now = df_export_single.iloc[-1]["toa_at_work_station"] + df_export_single.iloc[-1]["process_time_sec"]
+        print("log", idx, row["name"], time_now)
         df_export = pd.concat([df_export, df_export_single])
-        #path = r"C:\Users\bella\Desktop\export_%s.csv" 
-        path = path
-        df_export.to_csv(path, index=False)
-
     return df_export
 
+#export as csv    
+def export_df_as_csv(df, path):
+        #path = r"C:\Users\bella\Desktop\export_%s.csv" 
+        path = path
+        df.to_csv(path, index=False)
+        return df
 # layout page
 # st.set_page_config(layout="wide")
 tab1, tab2 = st.tabs(["Job Menu", "Schedule Jobs"])
@@ -77,6 +81,10 @@ if 'reset' not in st.session_state:
     st.session_state['reset'] = None
 if 'shift_current_delta' not in st.session_state:
     st.session_state['shift_current_delta'] = 0
+if 'demo_data' not in st.session_state:
+    st.session_state['demo_data'] = None
+if 'preview_schedule' not in st.session_state:
+    st.session_state['preview_schedule'] = None
 
 with tab1:
     st.header("Upload & Visualize Job Menu")
@@ -86,30 +94,47 @@ with tab1:
     # YAML_path = r"C:\Users\bella\PythonScheduler\job_config.yaml"
 
     YAML_path = st.file_uploader('Choose a YAML file')
-    # st.write(YAML_path)
-    # read and restructure temps data
+    st.write("File path:", YAML_path)
+    
+     # add option to preview app with demo data
+    st.write('''
+        **Want to preview the app without loading your own defined job options?**
+             
+        Toggle the switch below to populate the job menu with some default job options. 
+        Untoggle to switch the app to a mode that requires a user-provided yaml file.
+             ''')
+    st.session_state['demo_data'] = st.toggle('Preview the app with default job options')
+    if st.session_state['demo_data']:
+        YAML_path = r"job_config.yaml"
+        st.write("Load default job options.")
+    
+    #give option to upload demo
     if YAML_path:
         df_j_init = loadYAML(YAML_path)
         st.session_state.job_menu = df_j_init
-        with st.expander("View uploaded jobs"):
+        with st.expander("View jobs without calculated columns"):
             st.dataframe(st.session_state.job_menu)
-        st.subheader("Jobs on the Menu")
+        st.subheader("Full Job Menu")
         df_j_full = add_calculated_col_to_yaml_data(df_j_init)
         df_j = df_j_full[["name", "id", "cost_dollars", "work_sequence",
             "treatment_sequence", "proctime_idletime_tuples",
             "proctime_plus_idletime", "total_work_seq_time", "num_shifts"]]
-        st.dataframe(df_j)
-
-    st.subheader("Visualize Jobs")
-    if YAML_path:
+        st.dataframe(df_j_full)
+      
         
+    
+    if (YAML_path):
+        st.subheader("Set Number of Shifts and Workday Durations")
         col0, col1, col2 = st.columns(3)
+        st.write('''Parameters from the your selected job configuration file are shown below.
+            Click below to set these as class variables that will apply to all job instances.
+            Note: It is assummed that all shifts in a workday have the same duration.''')
         with col0:
-            st.write("Parameters from YAML config are shown on the right. Click to set as class variables that apply to all job instances. :sunglasses:")
-            st.button("Set class variables", on_click=set_class_variables, type="primary")
+            st.button("Click here to set parameters as class variables",
+             on_click=set_class_variables)
         col1.metric("Work Shifts / Day", df_j_full["num_shifts"][0], delta=None)
         col2.metric("Work Hours / Day", df_j_full["num_hrs_per_workday"][0], delta=None)
-
+        st.subheader("Visualize Jobs")
         #plot stacked column
         fig_cost = px.bar(df_j, x='name', y='cost_dollars', title= "Job Cost ($) ").update_layout(
             xaxis_title="Job Name", yaxis_title="Unit Cost ($)")
@@ -236,11 +261,17 @@ with tab2:
         else:
             st.write('''
                     The exported schedule will include the time of arrival (TOA) of each
-                    job at each workstation specifiec in the job's work sequence.
+                    job at each workstation specified in the job's work sequence.
                     ''')
+            st.session_state.preview_schedule = st.button("Click to preview schedule before export")
+            if st.session_state.preview_schedule:
+                df_to_export = st.session_state.user_sel_jobs
+                st.dataframe(preview_export_df_as_csv(df_to_export))
+
             # if export, iterate over df to apply method "make single job schedule" from Job class
-            export_path = st.text_input("Provide the directory path for your export. An example is shown below. If the csv file does not already exist, create a blank csv file at the location first.")
-            st.write(r"C:\Users\bella\Desktop\my_schedule.csv")
+            export_path = st.text_input("Provide the directory path for your export. If the csv file does not already exist, create a blank csv file at the location first.")
+            
+            st.write("**Path example:**", r"C:\Users\bella\Desktop\my_schedule.csv")
             st.write("File path for exported schedule:", export_path)
             #export and reset buttons
             col2, col3 = st.columns(2)
@@ -250,14 +281,16 @@ with tab2:
                 st.session_state.reset = st.button("Clear ALL jobs from schedule")
                 st.write("Double click to clear table displayed above.")
             if export_path:
-                df_export = export_df_as_csv(st.session_state.user_sel_jobs, export_path)
-                #st.write("Preview of exported schedule")
-                #st.write(df_export.head())
+                df_to_export = preview_export_df_as_csv(st.session_state.user_sel_jobs)
+                df_exported = export_df_as_csv(df_to_export, export_path)
+                st.write("Preview of exported schedule")
+                st.write(df_exported.head())
+                st.write(st.session_state.user_sel_jobs)
                 
         # if reset, clear df
         if st.session_state.reset:
             st.session_state.user_sel_jobs = pd.DataFrame(columns = df_j.columns)
-            #st.write(st.session_state.user_sel_jobs)
+            st.write(st.session_state.user_sel_jobs)
 
 
 # shift_current_delta = (Job.num_hrs_per_workday*60/ Job.num_shifts) - df_j["total_work_seq_time"].sum()

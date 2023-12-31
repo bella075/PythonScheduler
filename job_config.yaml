@@ -3,18 +3,28 @@ num_hrs_per_workday: 21
 num_shifts: 3
 published: 12-26-2023
 job:
-  - name: job_1
-    id: W223
+  - name: crankshaft
+    id: J223
     work_sequence: "40-20/10-30/20-80-50"
-    cost_dollars: 100
+    cost_dollars: 10
     treatment_sequence: "20-40-50"
-  - name: job_2
-    id: W12
-    work_sequence: "30/10"
+  - name: piston
+    id: J124
+    work_sequence: "30/10-30/10-5/0"
     cost_dollars: 50
-    treatment_sequence: "0"
-  - name: job_3
-    id: W234
+    treatment_sequence: "30-60"
+  - name: med_bearing
+    id: J235
     work_sequence: "80/20-80/20"
-    cost_dollars: 300
+    cost_dollars: 20
+    treatment_sequence: "5-5"
+  - name: lg_bearing
+    id: J684
+    work_sequence: "85/25-85/25"
+    cost_dollars: 40
+    treatment_sequence: "5-10"
+  - name: valve
+    id: J495
+    work_sequence: "60/15"
+    cost_dollars: 8
     treatment_sequence: "0"

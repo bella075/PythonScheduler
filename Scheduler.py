@@ -96,10 +96,10 @@ class Job:
             self.treatment_sequence = self.treatment_sequence.split("-")
         return self.treatment_sequence
     
-    def make_single_job_schedule(self):
+    def make_single_job_schedule(self, start_time):
         ls_toa, ls_process_time, ls_shift_counter, ls_job_counter = [], [], [], []
         ls_day_counter, ls_cost_dollars, ls_treatment_sequence= [], [], []
-        elapsed_time = 0
+        elapsed_time = start_time
         shift_counter, day_counter, treatment_counter = 1, 1, 0
 
         #update treatment_sequence
@@ -109,7 +109,7 @@ class Job:
             for count, tup in enumerate(self.ls_proctime_idletime_tuples):
                 if count == 0:
                     ls_process_time.append(tup[0])
-                    ls_toa.append(0)
+                    ls_toa.append(elapsed_time)
                 else:
                     ls_process_time.append(tup[0])
                     ls_toa.append(elapsed_time)
